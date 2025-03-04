@@ -16,7 +16,7 @@ const Chatbot: React.FC = () => {
   };
 
   return (
-    <div className="container-fluid rounded shadow p-0" style={{maxWidth: '370px', height: 'auto'}}>
+    <div className="container-fluid rounded shadow p-0" style={{maxWidth: '600px', height: 'auto'}}>
       <div className="bg-warning text-white p-3 text-center rounded-top">
         <div className="d-flex align-items-center justify-content">
           {logo && (
