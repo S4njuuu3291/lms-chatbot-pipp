@@ -8,54 +8,73 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 interface ChatMenuProps {
   onSelect: (question: string) => void;
+  categories?: string[];
+  disableShuffle?: boolean;
 }
 
-const ChatMenu: React.FC<ChatMenuProps> = ({ onSelect }) => {
+const ChatMenu: React.FC<ChatMenuProps> = ({ onSelect, categories, disableShuffle }) => {
   const [allQuestions, setAllQuestions] = useState<string[]>([]);
   const [questions, setQuestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Fungsi untuk mengacak question (menggunakan useCallback)
   const shuffleQuestions = useCallback(() => {
-    if (allQuestions.length > 0) {
-      const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
-      setQuestions(shuffled.slice(0, 4)); // Ambil 4 question acak
+    if (disableShuffle) {
+      if (categories && categories.length > 0) {
+        setQuestions(categories);
+      } else {
+        setQuestions(allQuestions);
+      }
+    } else {
+      if (categories && categories.length > 0) {
+        const shuffled = [...categories].sort(() => Math.random() - 0.5);
+        setQuestions(shuffled.slice(0, 4)); // Ambil 4 kategori acak
+      } else if (allQuestions.length > 0) {
+        const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
+        setQuestions(shuffled.slice(0, 4)); // Ambil 4 question acak
+      }
     }
-  }, [allQuestions]);
+  }, [allQuestions, categories, disableShuffle]);
 
   useEffect(() => {
-    const fetchQuestions = async () => {
-      setLoading(true); // Set loading menjadi true sebelum mengambil data
-
-      const { data, error } = await supabase
-        .from("questions")
-        .select("question")
-        .not("intent", "in", '("sapaan", "selesai")');
-
-
-      if (error) {
-        console.error("Gagal mengambil data:", error);
-        setLoading(false);
-        return;
-      }
-
-      if (data) {
-        const questionList = data.map((item: { question: string }) => item.question);
-        setAllQuestions(questionList); // Simpan ke state
-      }
-
+    if (categories && categories.length > 0) {
       setLoading(false);
-    };
+      shuffleQuestions();
+    } else {
+      const fetchQuestions = async () => {
+        setLoading(true); // Set loading menjadi true sebelum mengambil data
 
-    fetchQuestions();
-  }, []);
+        const { data, error } = await supabase
+          .from("questions")
+          .select("question")
+          .not("intent", "in", '("sapaan", "selesai")');
 
-  // Ketika allQuestions berubah, baru lakukan shuffle pertama kali
+        if (error) {
+          console.error("Gagal mengambil data:", error);
+          setLoading(false);
+          return;
+        }
+
+        if (data) {
+          const questionList = data.map((item: { question: string }) => item.question);
+          setAllQuestions(questionList); // Simpan ke state
+        }
+
+        setLoading(false);
+      };
+
+      fetchQuestions();
+    }
+  }, [categories, shuffleQuestions]);
+
+  // Ketika allQuestions atau categories berubah, baru lakukan shuffle pertama kali
   useEffect(() => {
-    if (allQuestions.length > 0) {
+    if (categories && categories.length > 0) {
+      shuffleQuestions();
+    } else if (allQuestions.length > 0) {
       shuffleQuestions();
     }
-  }, [allQuestions, shuffleQuestions]);
+  }, [allQuestions, categories, shuffleQuestions]);
 
   return (
     <div className="pt-3 px-3 border-top mb-0">
@@ -76,15 +95,17 @@ const ChatMenu: React.FC<ChatMenuProps> = ({ onSelect }) => {
         <p className="text-muted">Tidak ada question tersedia.</p>
       )}
 
-      <div className="d-flex justify-content-between align-items-center mt-2">
-        <button
-          className="btn btn-sm btn-outline-primary"
-          onClick={shuffleQuestions}
-          disabled={loading || allQuestions.length === 0}
-        >
-          ↻ Shuffle
-        </button>
-      </div>
+      {!disableShuffle && (
+        <div className="d-flex justify-content-between align-items-center mt-2">
+          <button
+            className="btn btn-sm btn-outline-primary"
+            onClick={shuffleQuestions}
+            disabled={loading || (categories ? categories.length === 0 : allQuestions.length === 0)}
+          >
+            ↻ Shuffle
+          </button>
+        </div>
+      )}
     </div>
   );
 };

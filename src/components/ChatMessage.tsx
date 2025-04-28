@@ -8,10 +8,16 @@ interface Message {
 
 interface ChatMessageProps {
   message: Message; // Mengubah menjadi satu pesan
+  children?: React.ReactNode;
 }
 
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
+interface ChatMessageProps {
+  message: Message; // Mengubah menjadi satu pesan
+  children?: React.ReactNode;
+}
+
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, children }) => {
 
   return (
     <div>
@@ -19,10 +25,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
         <div className="grayish-message-box mb-3 w-75" style={{ width:'auto',padding: '0.5rem', display: 'inline-block', }}> {/* Adjusted padding and made width dynamic */}
         <div className="markdown-content" style={{height:"auto", alignItems:"center"}}>
           <ReactMarkdown>{message.text}</ReactMarkdown>
+          {children}
         </div>
 
 
-          {/* {message.text} */}
         </div>
       </div>
 

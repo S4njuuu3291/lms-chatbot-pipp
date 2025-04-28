@@ -3,13 +3,31 @@ import ChatInput from "./ChatInput";
 import ChatMenu from "./ChatMenu";
 import ChatMessage from "./ChatMessage";
 import { FaTimes } from "react-icons/fa";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_API_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 interface ChatbotProps {
   onClose: () => void;
 }
 
+interface Message {
+  text: string;
+  isUser: boolean;
+}
+
+interface Question {
+  parent_intent: string;
+  question: string;
+}
+
 const Chatbot: React.FC<ChatbotProps> = ({ onClose }) => {
-  const [messages, setMessages] = useState<{ text: string; isUser: boolean }[]>([]);
+  const [messages, setMessages] = useState<Message[]>([
+    { text: "Categories:", isUser: false }
+  ]);
+  const [categories, setCategories] = useState<string[]>([]);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -18,7 +36,61 @@ const Chatbot: React.FC<ChatbotProps> = ({ onClose }) => {
     }
   }, [messages]);
 
-  const logo = "src/assets/image.png";
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const { data, error } = await supabase
+        .from<Question>("questions")
+        .select("parent_intent")
+        .neq("parent_intent", null)
+        .neq("parent_intent", "")
+        .order("parent_intent", { ascending: true });
+
+      if (error) {
+        console.error("Error fetching categories:", error);
+        return;
+      }
+
+      if (data) {
+        const uniqueCategories = Array.from(new Set(data.map((item) => item.parent_intent)));
+        setCategories(uniqueCategories);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  const fetchQuestionsByCategory = async (category: string) => {
+    const { data, error } = await supabase
+      .from<Question>("questions")
+      .select("question")
+      .eq("parent_intent", category);
+
+    if (error) {
+      console.error("Error fetching questions:", error);
+      return [];
+    }
+
+    if (data) {
+      return data.map((item) => item.question);
+    }
+
+    return [];
+  };
+
+  const handleCategorySelect = async (category: string) => {
+    setMessages((prev) => [...prev, { text: category, isUser: true }]);
+    const questions = await fetchQuestionsByCategory(category);
+
+    if (questions.length === 0) {
+      setMessages((prev) => [...prev, { text: "No questions found for this category.", isUser: false }]);
+      return;
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      ...questions.map((q) => ({ text: q, isUser: false }))
+    ]);
+  };
 
   const sendMessage = async (text: string) => {
     setMessages((prev) => [...prev, { text, isUser: true }]);
@@ -50,9 +122,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ onClose }) => {
       <div className="bg-warning text-white p-3 text-center rounded-top">
         <div className="d-flex align-items-center justify-content-between">
           <div className="d-flex align-items-center">
-            {logo && (
-              <img src={logo} alt="Chatbot Logo" className="img-fluid me-2" style={{ width: "50px", height: "50px" }} />
-            )}
+            <img src="src/assets/image.png" alt="Chatbot Logo" className="img-fluid me-2" style={{ width: "50px", height: "50px" }} />
             <h2 className="m-0">Live Unpad</h2>
           </div>
           <button
@@ -72,13 +142,24 @@ const Chatbot: React.FC<ChatbotProps> = ({ onClose }) => {
       </div>
 
       <div ref={chatContainerRef} className="overflow-auto chat-message p-4" style={{ height: "270px" }}>
-        {messages.map((msg, index) => (
-          <ChatMessage key={index} message={{ text: msg.text, isUser: msg.isUser }} />
-        ))}
+        {messages.map((msg, index) => {
+          const firstAIIndex = messages.findIndex(m => !m.isUser);
+          return (
+            <React.Fragment key={index}>
+              <ChatMessage message={msg}>
+                {index === firstAIIndex && !msg.isUser && (
+                  <ChatMenu
+                    onSelect={handleCategorySelect}
+                    categories={categories}
+                  />
+                )}
+              </ChatMessage>
+            </React.Fragment>
+          );
+        })}
       </div>
 
-      <ChatMenu onSelect={(question) => sendMessage(question)} />
-      <ChatInput onSend={(message) => sendMessage(message)} />
+      <ChatInput onSend={sendMessage} />
     </div>
   );
 };
